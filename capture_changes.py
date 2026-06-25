@@ -1,7 +1,7 @@
 import dlt
 from pg_replication import replication_resource
 
-CREDENTIALS = "postgresql://postgres:postgres@localhost:5432/appdb"
+CREDENTIALS = "postgresql://your_user@localhost:5432/your_db"
 
 pipeline = dlt.pipeline(
     pipeline_name="cdc_pipeline",
