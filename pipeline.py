@@ -2,7 +2,7 @@ import dlt
 from pg_replication import replication_resource
 from pg_replication.helpers import init_replication
 
-CREDENTIALS = "postgresql://nevenkalukic@localhost:5432/appdb"
+CREDENTIALS = "postgresql://postgres:postgres@localhost:5432/appdb"
 SLOT_NAME = "cdc_pipeline_slot"
 PUB_NAME = "cdc_pipeline_pub"
 
