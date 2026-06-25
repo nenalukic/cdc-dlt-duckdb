@@ -83,7 +83,7 @@ The `dlt init` step scaffolds the `pg_replication/` package into your project di
 
 ### 3. Set your credentials
 
-Edit `pipeline_corrected.py` and `capture_changes.py` to point at your database:
+Edit `pipeline.py` and `capture_changes.py` to point at your database:
 
 ```python
 CREDENTIALS = "postgresql://your_user:your_password@localhost:5432/your_db"
@@ -96,7 +96,7 @@ CREDENTIALS = "postgresql://your_user:your_password@localhost:5432/your_db"
 ### Initial snapshot + first change batch
 
 ```bash
-uv run pipeline_corrected.py
+uv run pipeline.py
 ```
 
 This creates a replication slot and publication, loads a full snapshot of the source tables into DuckDB staging, then captures any changes that arrived during or after the snapshot.
@@ -112,7 +112,7 @@ uv run capture_changes.py
 ### Apply changes to the analytics table
 
 ```bash
-uv run merge_corrected.py
+uv run merge.py
 ```
 
 This reads the latest change batch from `staging_staging` and applies it to the `orders` target table using `MERGE INTO`. Run this after each `capture_changes.py` call.
@@ -141,8 +141,8 @@ There is no `op` string column. Delete events are identified by `deleted_ts IS N
 
 | File | Purpose |
 |---|---|
-| `pipeline_corrected.py` | Initial snapshot + first CDC batch |
+| `pipeline.py` | Initial snapshot + first CDC batch |
 | `capture_changes.py` | Ongoing change capture (run on a schedule) |
-| `merge_corrected.py` | Apply latest CDC batch to DuckDB target via `MERGE INTO` |
+| `merge.py` | Apply latest CDC batch to DuckDB target via `MERGE INTO` |
 | `code_test_results.md` | Full test log — what each snippet did, errors hit, and fixes applied |
 
