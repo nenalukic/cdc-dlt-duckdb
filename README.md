@@ -52,6 +52,8 @@ uv sync
 
 ### 2. Enable logical replication on PostgreSQL
 
+If you don't have PostgreSQL installed, use Docker. If you already have it running locally, apply the settings with `ALTER SYSTEM`.
+
 For a local Docker instance, pass the flags at startup:
 
 ```yaml
