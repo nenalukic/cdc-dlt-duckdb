@@ -292,14 +292,3 @@ Order 1 updated, order 2 deleted, order 3 inserted — all three CDC event types
 | `pipeline.py` (dlt source) | **FAIL** | Wrong import (`table_schema`), wrong API (`dlt.sources.pg_replication` doesn't exist) |
 | DuckDB `MERGE INTO` | **FAIL** | Wrong schema reference (`staging.orders` vs `staging_staging.orders`), wrong column name (`op` vs `deleted_ts`) |
 
-### Bugs to fix in the article
-
-1. **`uv add` command** — add `"dlt[sql_database]"` to the install list.
-
-2. **`pipeline.py` line 2** — remove the unused `from dlt.sources.sql_database.schema_types import table_schema` import.
-
-3. **`pipeline.py` lines 7–16** — `dlt.sources.pg_replication(...)` does not exist. Requires `dlt init pg_replication duckdb` to scaffold the local package, then use `init_replication` + `replication_resource` as shown in the fix above.
-
-4. **`MERGE INTO` staging reference** — the script must `ATTACH 'cdc_pipeline.duckdb' AS cdc` before referencing `staging.orders`. Raw change events (including deletes) are in `staging_staging.orders`, not `staging.orders`.
-
-5. **`MERGE INTO` `op` column** — dlt pg_replication does not produce an `op` column. Delete events are identified by `deleted_ts IS NOT NULL`. Replace all `op`-based predicates with `deleted_ts`-based ones.
