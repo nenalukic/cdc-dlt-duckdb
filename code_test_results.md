@@ -99,7 +99,7 @@ AttributeError: module 'dlt.sources' has no attribute 'pg_replication'
 ```
 `dlt.sources.pg_replication(...)` does not exist. The `pg_replication` source is a verified source shipped as a local package, not a built-in `dlt.sources` module. It must be scaffolded first with `dlt init pg_replication duckdb`, which generates a `pg_replication/` directory in the project. The actual API uses `init_replication` + `replication_resource`, not a single `dlt.sources.pg_replication(...)` call.
 
-**Fix — corrected pipeline:**
+**Fix:**
 ```python
 import dlt
 from pg_replication import replication_resource
@@ -221,7 +221,7 @@ The `op` column (`op = 'd'`, `op IN ('u', 'c')`) does not exist in the dlt stagi
 
 **Note on trailing comma:** DuckDB 1.5.4 accepts a trailing comma before `)` in `CREATE TABLE`. That part of the snippet is fine.
 
-**Fix — corrected MERGE INTO:**
+**Fix:**
 ```python
 import duckdb
 
