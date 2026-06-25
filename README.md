@@ -1,0 +1,161 @@
+# CDC with dlt and DuckDB
+
+Change Data Capture (CDC) pipeline that reads PostgreSQL's Write-Ahead Log using [dlt](https://dlthub.com) and applies changes to a DuckDB analytics table via `MERGE INTO`.
+
+This repository is the companion code for the article *CDC Explained: Why Full Refresh ETL Is Dying*, the third part in a series on the modern single-engineer data stack.
+
+---
+
+## What this does
+
+Instead of truncating and reloading an entire table on each run (full refresh), this pipeline:
+
+1. Takes an **initial snapshot** of the source tables directly from PostgreSQL
+2. Streams every subsequent **insert, update, and delete** from the WAL via a replication slot
+3. Applies those changes to a DuckDB target table with a single **`MERGE INTO`** statement
+
+The result is a DuckDB table that stays in sync with the source database, with deletes included at near-zero compute overhead compared to a full reload.
+
+---
+
+## Stack
+
+| Layer | Tool |
+|---|---|
+| Source | PostgreSQL 14+ with `wal_level = logical` |
+| Ingestion | [dlt](https://dlthub.com) `pg_replication` verified source |
+| Destination | DuckDB 1.5+ |
+| Package manager | [uv](https://docs.astral.sh/uv/) |
+
+---
+
+## Prerequisites
+
+- PostgreSQL 14 or later (local or remote)
+- Python 3.11+
+- [uv](https://docs.astral.sh/uv/) installed
+- The PostgreSQL user must have the `REPLICATION` attribute and own the tables being replicated (or be a superuser)
+
+---
+
+## Setup
+
+### 1. Enable logical replication on PostgreSQL
+
+For a local Docker instance, pass the flags at startup:
+
+```yaml
+# docker-compose.yml
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: appdb
+    ports:
+      - "5432:5432"
+    command: >
+      postgres
+        -c wal_level=logical
+        -c max_replication_slots=4
+        -c max_wal_senders=4
+```
+
+For a self-managed database, run as superuser and restart:
+
+```sql
+ALTER SYSTEM SET wal_level = 'logical';
+ALTER SYSTEM SET max_replication_slots = 4;
+ALTER SYSTEM SET max_wal_senders = 4;
+```
+
+### 2. Install dependencies
+
+```bash
+uv init cdc-pipeline
+cd cdc-pipeline
+uv add "dlt[duckdb]" "dlt[sql_database]" duckdb psycopg2-binary
+uv run dlt init pg_replication duckdb
+```
+
+The `dlt init` step scaffolds the `pg_replication/` package into your project directory. Both `dlt[duckdb]` and `dlt[sql_database]` extras are required — the replication source depends on SQLAlchemy internally.
+
+### 3. Set your credentials
+
+Edit `pipeline_corrected.py` and `capture_changes.py` to point at your database:
+
+```python
+CREDENTIALS = "postgresql://your_user:your_password@localhost:5432/your_db"
+```
+
+---
+
+## Running the pipeline
+
+### Initial snapshot + first change batch
+
+```bash
+uv run pipeline_corrected.py
+```
+
+This creates a replication slot and publication, loads a full snapshot of the source tables into DuckDB staging, then captures any changes that arrived during or after the snapshot.
+
+### Capture ongoing changes
+
+Run this on a schedule (cron, Airflow, etc.) to stream new inserts, updates, and deletes:
+
+```bash
+uv run capture_changes.py
+```
+
+### Apply changes to the analytics table
+
+```bash
+uv run merge_corrected.py
+```
+
+This reads the latest change batch from `staging_staging` and applies it to the `orders` target table using `MERGE INTO`. Run this after each `capture_changes.py` call.
+
+---
+
+## How dlt stages CDC events
+
+dlt writes change events into two schemas inside `cdc_pipeline.duckdb`:
+
+| Schema | Contents |
+|---|---|
+| `staging` | dlt's own merged view — deletes are already applied here |
+| `staging_staging` | Raw change events, one row per event. **This is what `MERGE INTO` reads from.** |
+
+Each row in `staging_staging` carries:
+
+- `lsn` — the WAL position of the event
+- `deleted_ts` — non-null timestamp for delete events, `NULL` for inserts and updates
+
+There is no `op` string column. Delete events are identified by `deleted_ts IS NOT NULL`.
+
+---
+
+## File reference
+
+| File | Purpose |
+|---|---|
+| `pipeline_corrected.py` | Initial snapshot + first CDC batch |
+| `capture_changes.py` | Ongoing change capture (run on a schedule) |
+| `merge_corrected.py` | Apply latest CDC batch to DuckDB target via `MERGE INTO` |
+| `code_test_results.md` | Full test log — what each snippet did, errors hit, and fixes applied |
+
+---
+
+## Key corrections from the original article
+
+Testing the code revealed five issues that have been fixed in both the article and the scripts here:
+
+1. **Missing dependency** — `dlt[sql_database]` must be added alongside `dlt[duckdb]`; the `pg_replication` source depends on SQLAlchemy internally.
+2. **`dlt.sources.pg_replication()` does not exist** — the source is a scaffolded local package, not a built-in. Use `dlt init pg_replication duckdb` to generate it, then import `init_replication` and `replication_resource` directly.
+3. **No `op` column** — dlt does not emit `op = 'c'/'u'/'d'` fields. Deletes are identified by `deleted_ts IS NOT NULL`.
+4. **Wrong staging table** — raw change events (including deletes) are in `staging_staging`, not `staging`. `staging` already has dlt's own merge applied and deleted rows removed.
+5. **Missing `ATTACH`** — the target analytics DuckDB file and the pipeline DuckDB file are separate; the merge script must `ATTACH 'cdc_pipeline.duckdb' AS cdc` before referencing its schemas.
+
+See `code_test_results.md` for the full test output and error traces.
