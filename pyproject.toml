@@ -1,0 +1,11 @@
+[project]
+name = "cdc-pipeline"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "dlt[duckdb,sql-database]>=1.28.1",
+    "duckdb>=1.5.4",
+    "psycopg2-binary>=2.9.12",
+]

@@ -3,3 +3,7 @@ cdc-pipeline/
 CDC Explained_*
 Visual*.png
 CLAUDE.md
+.dlt/
+__pycache__/
+*.pyc
+.venv/
