@@ -40,7 +40,17 @@ The result is a DuckDB table that stays in sync with the source database, with d
 
 ## Setup
 
-### 1. Enable logical replication on PostgreSQL
+### 1. Clone the repo and install dependencies
+
+```bash
+git clone git@github.com:nenalukic/cdc-dlt-duckdb.git
+cd cdc-dlt-duckdb
+uv sync
+```
+
+`uv sync` installs all dependencies from the lockfile into a local `.venv`. The `pg_replication/` source package is already included in the repo.
+
+### 2. Enable logical replication on PostgreSQL
 
 For a local Docker instance, pass the flags at startup:
 
@@ -69,17 +79,6 @@ ALTER SYSTEM SET wal_level = 'logical';
 ALTER SYSTEM SET max_replication_slots = 4;
 ALTER SYSTEM SET max_wal_senders = 4;
 ```
-
-### 2. Install dependencies
-
-```bash
-uv init cdc-pipeline
-cd cdc-pipeline
-uv add "dlt[duckdb]" "dlt[sql_database]" duckdb psycopg2-binary
-uv run dlt init pg_replication duckdb
-```
-
-The `dlt init` step scaffolds the `pg_replication/` package into your project directory. Both `dlt[duckdb]` and `dlt[sql_database]` extras are required — the replication source depends on SQLAlchemy internally.
 
 ### 3. Set your credentials
 
