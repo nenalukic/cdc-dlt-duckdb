@@ -146,16 +146,3 @@ There is no `op` string column. Delete events are identified by `deleted_ts IS N
 | `merge_corrected.py` | Apply latest CDC batch to DuckDB target via `MERGE INTO` |
 | `code_test_results.md` | Full test log — what each snippet did, errors hit, and fixes applied |
 
----
-
-## Key corrections from the original article
-
-Testing the code revealed five issues that have been fixed in both the article and the scripts here:
-
-1. **Missing dependency** — `dlt[sql_database]` must be added alongside `dlt[duckdb]`; the `pg_replication` source depends on SQLAlchemy internally.
-2. **`dlt.sources.pg_replication()` does not exist** — the source is a scaffolded local package, not a built-in. Use `dlt init pg_replication duckdb` to generate it, then import `init_replication` and `replication_resource` directly.
-3. **No `op` column** — dlt does not emit `op = 'c'/'u'/'d'` fields. Deletes are identified by `deleted_ts IS NOT NULL`.
-4. **Wrong staging table** — raw change events (including deletes) are in `staging_staging`, not `staging`. `staging` already has dlt's own merge applied and deleted rows removed.
-5. **Missing `ATTACH`** — the target analytics DuckDB file and the pipeline DuckDB file are separate; the merge script must `ATTACH 'cdc_pipeline.duckdb' AS cdc` before referencing its schemas.
-
-See `code_test_results.md` for the full test output and error traces.
